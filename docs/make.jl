@@ -4,20 +4,20 @@ using Documenter
 
 makedocs(;
     modules=[Clang, Clang.LibClang],
-    repo="https://github.com/JuliaInterop/Clang.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/rexwzh/Clang.jl/blob/{commit}{path}#L{line}",
     sitename="Clang.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://JuliaInterop.github.io/Clang.jl",
+        canonical="https://rexwzh.github.io/Clang.jl",
         assets=String[],
     ),
-    pages=[
-        "Introduction" => "index.md",
-        "Generator Tutorial" => "generator.md",
-        "LibClang Tutorial" => "tutorial.md",
-        "LibClang Wrapper API Reference" => "libclang.md",
-        "Clang API Reference" => "api.md",
-    ],
+    pages = ["介绍" => "index.md",
+         "生成器教程" => "generator.md",
+         "LibClang 教程" => "tutorial.md",
+         "LibClang 封装器的 API 参考" => "libclang.md",
+         "Clang 的 API 参考" => "api.md",
+        ],
 )
 
-deploydocs(; repo="github.com/JuliaInterop/Clang.jl.git")
+
+deploydocs(; repo="github.com/RexWzh/Clang.jl.git")
