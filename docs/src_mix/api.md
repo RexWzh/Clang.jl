@@ -1,4 +1,3 @@
-
 # Clang API Reference
 
 ```@autodocs
