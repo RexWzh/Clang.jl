@@ -20,4 +20,5 @@ makedocs(;
 )
 
 
-deploydocs(; repo="github.com/RexWzh/Clang.jl.git")
+deploydocs(; repo="github.com/RexWzh/Clang.jl.git"
+           , versions = ["stable" => "v^", "dev" => "master"])
