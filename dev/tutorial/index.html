@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>LibClang 教程 · Clang.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://rexwzh.github.io/Clang.jl/tutorial/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Clang.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">介绍</a></li><li><a class="tocitem" href="../generator/">生成器教程</a></li><li class="is-active"><a class="tocitem" href>LibClang 教程</a><ul class="internal"><li><a class="tocitem" href="#打印结构字段"><span>打印结构字段</span></a></li><li><a class="tocitem" href="#函数参数和类型"><span>函数参数和类型</span></a></li><li><a class="tocitem" href="#打印缩进游标层次结构"><span>打印缩进游标层次结构</span></a></li><li><a class="tocitem" href="#解析总结"><span>解析总结</span></a></li><li><a class="tocitem" href="#致谢"><span>致谢</span></a></li></ul></li><li><a class="tocitem" href="../libclang/">LibClang 封装器的 API 参考</a></li><li><a class="tocitem" href="../api/">Clang 的 API 参考</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>LibClang 教程</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>LibClang 教程</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/rexwzh/Clang.jl/blob/master/docs/src/tutorial.md#L" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="LibClang-教程"><a class="docs-heading-anchor" href="#LibClang-教程">LibClang 教程</a><a id="LibClang-教程-1"></a><a class="docs-heading-anchor-permalink" href="#LibClang-教程" title="Permalink"></a></h1><p>Clang 是一个开源编译器，它建立在 LLVM 框架之上，面向 C、C++ 和 Objective-C（LLVM 也是 Julia 的 JIT 后端）。由于高度模块化的设计，近年来，Clang 已成为越来越多使用编译器部分的项目的核心，例如用于源到源转换、静态分析和安全评估的工具，以及用于代码补全的编辑器工具、格式化等</p><p>虽然 LLVM 和 Clang 是用 C++ 编写的，但 Clang 项目维护了一个名为 “libclang” 的 C 导出接口，它提供对抽象语法树和类型表示的访问。由于对 C 调用习惯的支持无处不在，许多语言都使用 libclang 作为与 C 和 C++ 相关的工具的基础。</p><p>Julia 包 Clang.jl 封装了 libclang，为 Julia 风格的编程提供了一个小型的便利 API，并提供了一个基于 libclang 功能构建的 C-to-Julia 封装器生成器。</p><p>这是以下是使用的头文件 <code>example.h</code> 的示例：</p><pre><code class="language-c hljs">// example.h
+struct ExStruct {
+    int    kind;
+    char*  name;
+    float* data;
+};
+
+void* ExFunction (int kind, char* name, float* data) {
+    struct ExStruct st;
+    st.kind = kind;
+    st.name = name;
+    st.data = data;
+}</code></pre><h2 id="打印结构字段"><a class="docs-heading-anchor" href="#打印结构字段">打印结构字段</a><a id="打印结构字段-1"></a><a class="docs-heading-anchor-permalink" href="#打印结构字段" title="Permalink"></a></h2><p>为了用一个简洁的例子来激发讨论，考虑这个结构：</p><pre><code class="language-c hljs">struct ExStruct {
+    int    kind;
+    char*  name;
+    float* data;
+};</code></pre><p>解析和查询这个结构的字段只需要几行代码：</p><pre><code class="language-julia hljs">julia&gt; using Clang
+
+julia&gt; trans_unit = Clang.parse_header(Index(), &quot;example.h&quot;)
+TranslationUnit(Ptr{Nothing} @0x00007fe13cdc8a00, Index(Ptr{Nothing} @0x00007fe13cc8dde0, 0, 1))
+
+julia&gt; root_cursor = Clang.getTranslationUnitCursor(trans_unit)
+CLCursor (CLTranslationUnit) example.h
+
+julia&gt; struct_cursor = search(root_cursor, &quot;ExStruct&quot;) |&gt; only
+CLCursor (CLStructDecl) ExStruct
+
+julia&gt; for c in children(struct_cursor)  # print children
+           println(&quot;Cursor: &quot;, c, &quot;\n  Kind: &quot;, kind(c), &quot;\n  Name: &quot;, name(c), &quot;\n  Type: &quot;, Clang.getCursorType(c))
+       end
+Cursor: CLCursor (CLFieldDecl) kind
+  Kind: CXCursor_FieldDecl(6)
+  Name: kind
+  Type: CLType (CLInt)
+Cursor: CLCursor (CLFieldDecl) name
+  Kind: CXCursor_FieldDecl(6)
+  Name: name
+  Type: CLType (CLPointer)
+Cursor: CLCursor (CLFieldDecl) data
+  Kind: CXCursor_FieldDecl(6)
+  Name: data
+  Type: CLType (CLPointer)</code></pre><h3 id="抽象语法树(AST)的表示"><a class="docs-heading-anchor" href="#抽象语法树(AST)的表示">抽象语法树(AST)的表示</a><a id="抽象语法树(AST)的表示-1"></a><a class="docs-heading-anchor-permalink" href="#抽象语法树(AST)的表示" title="Permalink"></a></h3><p>让我们检查上面的示例，从变量 <code>trans_unit</code> 开始：</p><pre><code class="language-julia hljs">julia&gt; trans_unit
+TranslationUnit(Ptr{Nothing} @0x00007fa9ac6a9f90, Index(Ptr{Nothing} @0x00007fa9ac6b4080, 0, 1))</code></pre><p><code>TranslationUnit</code> 是 libclang AST 的入口点。在上面的示例中，<code>trans_unit</code> 是解析文件 <code>example.h</code> 的 <code>TranslationUnit</code>。 libclang AST 表示为包含三个基本信息的游标节点的有向无环图：</p><ul><li><p>Kind：游标节点的用途</p></li><li><p>Type：游标所代表的对象的类型</p></li><li><p>Children：子节点列表</p></li></ul><pre><code class="language-julia hljs">julia&gt; root_cursor
+CLCursor (CLTranslationUnit) example.h</code></pre><p><code>root_cursor</code> 是 <code>TranslationUnit</code> 的根游标节点。</p><p>在 Clang.jl 中，游标类型通过从抽象类型 CLCursor 派生的 Julia 类型进行封装。在这背后，libclang 将每个游标 (CXCursor) 种类和类型 (CXType) 表示为一个枚举值。这些枚举值用于自动将所有 CXCursor 和 CXType 对象映射到 Julia 类型。因此，可以针对 CLCursor 或 CLType 变量编写多重调度方法。</p><pre><code class="language-julia hljs">julia&gt; dump(root_cursor)
+CLTranslationUnit
+  cursor: Clang.LibClang.CXCursor
+    kind: Clang.LibClang.CXCursorKind CXCursor_TranslationUnit(300)
+    xdata: Int32 0
+    data: Tuple{Ptr{Nothing},Ptr{Nothing},Ptr{Nothing}}
+      1: Ptr{Nothing} @0x00007fe13b3552e8
+      2: Ptr{Nothing} @0x0000000000000001
+      3: Ptr{Nothing} @0x00007fe13cdc8a00</code></pre><p>在背后，libclang 将每个游标种类和类型表示为枚举值。</p><p>这些枚举翻译到 Julia 中作为 <code>Cenum</code> 的子类型：</p><pre><code class="language-julia hljs">julia&gt; dump(Clang.LibClang.CXCursorKind)
+Clang.LibClang.CXCursorKind &lt;: Clang.LibClang.CEnum.Cenum{UInt32}</code></pre><p>该示例演示了访问给定游标的子节点的两种不同方式。这里，<code>children</code> 函数返回给定游标的子节点上的迭代器：</p><pre><code class="language-julia hljs">julia&gt; children(struct_cursor)
+3-element Array{CLCursor,1}:
+ CLCursor (CLFieldDecl) kind
+ CLCursor (CLFieldDecl) name
+ CLCursor (CLFieldDecl) data</code></pre><p>在这里，<code>search</code> 函数返回与给定名称匹配的子节点列表：</p><pre><code class="language-julia hljs">julia&gt; search(root_cursor, &quot;ExStruct&quot;)
+1-element Array{CLCursor,1}:
+ CLCursor (CLStructDecl) ExStruct</code></pre><h3 id="类型表示"><a class="docs-heading-anchor" href="#类型表示">类型表示</a><a id="类型表示-1"></a><a class="docs-heading-anchor-permalink" href="#类型表示" title="Permalink"></a></h3><p>上面的示例还演示了使用辅助函数 <code>type</code> 查询与给定游标关联的类型。输出信息中：</p><pre><code class="language-julia hljs">Cursor: CLCursor (CLFieldDecl) kind
+  Kind: CXCursor_FieldDecl(6)
+  Name: kind
+  Type: CLType (CLInt)
+Cursor: CLCursor (CLFieldDecl) name
+  Kind: CXCursor_FieldDecl(6)
+  Name: name
+  Type: CLType (CLPointer)
+Cursor: CLCursor (CLFieldDecl) data
+  Kind: CXCursor_FieldDecl(6)
+  Name: data
+  Type: CLType (CLPointer)</code></pre><p>每个 <code>CLFieldDecl</code> 游标都有一个关联的 <code>CLType</code> 对象，其标识反映了给定结构成员的字段类型。请务必注意 <em>kind</em> 字段与名称和数据字段的表示之间的区别。 <em>kind</em> 直接表示为 <code>CLInt</code> 对象，但名称和数据表示为 <code>CLPointer</code> CLTypes。如下一节所述，可以查询 CLPointer 的完整类型以检索这些成员的完整 <code>char *</code> 和 <code>float *</code> 类型。使用类似的方案捕获用户定义的类型。</p><h2 id="函数参数和类型"><a class="docs-heading-anchor" href="#函数参数和类型">函数参数和类型</a><a id="函数参数和类型-1"></a><a class="docs-heading-anchor-permalink" href="#函数参数和类型" title="Permalink"></a></h2><p>要进一步探索类型表示，请考虑以下函数（包含在 example.h 中）：</p><pre><code class="language-c hljs">void* ExFunction (int kind, char* name, float* data) {
+    struct ExStruct st;
+    st.kind = kind;
+    st.name = name;
+    st.data = data;
+}</code></pre><p>为了找到此函数声明的游标，我们使用函数 <code>search</code> 检索类型为 <code>CXCursor_FunctionDecl</code> 的节点，并选择列表中的最后一个：</p><pre><code class="language-julia hljs">julia&gt; using Clang.LibClang  # CXCursor_FunctionDecl is exposed from LibClang
+
+julia&gt; fdecl = search(root_cursor, CXCursor_FunctionDecl) |&gt; only
+CLCursor (CLFunctionDecl) ExFunction(int, char *, float *)
+
+julia&gt; fdecl_children = [c for c in children(fdecl)]
+4-element Array{CLCursor,1}:
+ CLCursor (CLParmDecl) kind
+ CLCursor (CLParmDecl) name
+ CLCursor (CLParmDecl) data
+ CLCursor (CLCompoundStmt)</code></pre><p>前三个 <code>children</code> 是 <code>CLParmDecl</code> 游标，与函数签名中的参数同名。检查 <code>CLParmDecl</code> 游标的类型表明了与函数签名相似性：</p><pre><code class="language-julia hljs">julia&gt; [Clang.getCursorType(t) for t in fdecl_children[1:3]]
+3-element Array{CLType,1}:
+ CLType (CLInt)     
+ CLType (CLPointer)
+ CLType (CLPointer)</code></pre><p>最后，通过检索每个 <code>CLPointer</code> 参数的目标类型，确认这些游标代表了函数参数类型声明：</p><pre><code class="language-julia hljs">julia&gt; [Clang.getPointeeType(Clang.getCursorType(t)) for t in fdecl_children[2:3]]
+2-element Array{CLType,1}:
+ CLType (CLChar_S)
+ CLType (CLFloat)  </code></pre><h2 id="打印缩进游标层次结构"><a class="docs-heading-anchor" href="#打印缩进游标层次结构">打印缩进游标层次结构</a><a id="打印缩进游标层次结构-1"></a><a class="docs-heading-anchor-permalink" href="#打印缩进游标层次结构" title="Permalink"></a></h2><p>作为结尾示例，这是一个简单的缩进式 AST 打印机，它使用与 <code>CLType</code> 和 <code>CLCursor</code> 相关的函数，并利用了 Julia 类型系统的各个方面。</p><pre><code class="language-julia hljs">printind(ind::Int, st...) = println(join([repeat(&quot; &quot;, 2*ind), st...]))
+
+printobj(cursor::CLCursor) = printobj(0, cursor)
+printobj(t::CLType) = join(typeof(t), &quot; &quot;, spelling(t))
+printobj(t::CLInt) = t
+printobj(t::CLPointer) = Clang.getPointeeType(t)
+printobj(ind::Int, t::CLType) = printind(ind, printobj(t))
+
+function printobj(ind::Int, cursor::Union{CLFieldDecl, CLParmDecl})
+    printind(ind+1, typeof(cursor), &quot; &quot;, printobj(Clang.getCursorType(cursor)), &quot; &quot;, name(cursor))
+end
+
+function printobj(ind::Int, node::Union{CLCursor, CLStructDecl, CLCompoundStmt,
+                                        CLFunctionDecl, CLBinaryOperator})
+    printind(ind, &quot; &quot;, typeof(node), &quot; &quot;, name(node))
+    for c in children(node)
+        printobj(ind + 1, c)
+    end
+end</code></pre><pre><code class="language-julia hljs">julia&gt; printobj(root_cursor)
+ CLTranslationUnit example.h
+   CLStructDecl ExStruct
+      CLFieldDecl CLType (CLInt)  kind
+      CLFieldDecl CLType (CLChar_S)  name
+      CLFieldDecl CLType (CLFloat)  data
+   CLFunctionDecl ExFunction(int, char *, float *)
+      CLParmDecl CLType (CLInt)  kind
+      CLParmDecl CLType (CLChar_S)  name
+      CLParmDecl CLType (CLFloat)  data
+     CLCompoundStmt
+       CLDeclStmt
+         CLVarDecl st
+           CLTypeRef struct ExStruct
+       CLBinaryOperator
+         CLMemberRefExpr kind
+           CLDeclRefExpr st
+         CLUnexposedExpr kind
+           CLDeclRefExpr kind
+       CLBinaryOperator
+         CLMemberRefExpr name
+           CLDeclRefExpr st
+         CLUnexposedExpr name
+           CLDeclRefExpr name
+       CLBinaryOperator
+         CLMemberRefExpr data
+           CLDeclRefExpr st
+         CLUnexposedExpr data
+           CLDeclRefExpr data</code></pre><p>请注意，已为抽象的 <code>CLType</code> 和 <code>CLCursor</code> 类型定义了通用的 <code>printobj</code> 函数，并且使用多重分派为需要自定义行为的各种特定类型定义了打印器。特别是，以下函数处理所有需要递归打印子节点的游标类型：</p><pre><code class="language-julia hljs">function printobj(ind::Int, node::Union{CLCursor, CLStructDecl, CLCompoundStmt, CLFunctionDecl})</code></pre><p>现在，<code>printobj</code> 已移至 Clang.jl 中，新名称为：<code>dumpobj</code>。</p><h2 id="解析总结"><a class="docs-heading-anchor" href="#解析总结">解析总结</a><a id="解析总结-1"></a><a class="docs-heading-anchor-permalink" href="#解析总结" title="Permalink"></a></h2><p>如上所述，Clang.jl/libclang API 有几个关键方面：</p><ul><li><p>代表 AST 的 Cursor 节点树，notes 有唯一的孩子。</p></li><li><p>每个 Cursor 节点都有一个 Julia 类型，用于标识节点表示的句法结构。</p></li><li><p>每个节点还有一个关联的 CLType，引用内部或用户定义的数据类型。</p></li></ul><p>这篇文章省略了许多细节，特别是关于通过 libclang 可用的各种 <code>CLCursor</code> 和 <code>CLType</code> 表示。有关详细信息，请参阅 <a href="http://clang.llvm.org/doxygen/group__CINDEX.html">libclang 文档</a>。</p><h2 id="致谢"><a class="docs-heading-anchor" href="#致谢">致谢</a><a id="致谢-1"></a><a class="docs-heading-anchor-permalink" href="#致谢" title="Permalink"></a></h2><p>Eli Bendersky 的博文 <a href="http://eli.thegreenplace.net/2011/07/03/parsing-c-in-python-with-clang/">使用 Clang 在 Python 中解析 C++</a> 是非常有用的参考。</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../generator/">« 生成器教程</a><a class="docs-footer-nextpage" href="../libclang/">LibClang 封装器的 API 参考 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 9 February 2023 01:15">Thursday 9 February 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
