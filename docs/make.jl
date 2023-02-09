@@ -22,5 +22,5 @@ makedocs(;
 
 deploydocs(; repo="github.com/RexWzh/Clang.jl.git"
            , devurl = "dev"
-           , devbranch = ＂dev＂
+           , devbranch = "zh_CN"
            , versions = ["stable" => "v^", "dev" => "dev"])
