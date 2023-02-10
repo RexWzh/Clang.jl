@@ -1,7 +1,7 @@
 # 生成器教程
 ## 封装 JLL 包的教程
 
-在大多数情况下，Clang.jl 的用途是将 Julia 接口导出到由 JLL 包管理的 C 库。 JLL 包封装了一个工件，它提供了一个共享库，可以通过适用于 C 编译器的 `ccall` 语法和合适的标头进行调用。 Clang.jl 可以将 C 头文件翻译成 Julia 文件，这些文件可以像普通的 Julia 函数和类型一样直接使用。
+在大多数情况下，Clang.jl 的用途是将 Julia 接口导出到由 JLL 包管理的 C 库。 JLL 包封装了一个提供共享库的工件，通过适用于 C 编译器的 `ccall` 语法和合适的标头进行调用。 Clang.jl 可以将 C 头文件翻译成 Julia 文件，进而可以像普通的 Julia 函数和类型一样直接使用。
 
 包装 JLL 包的一般工作流程如下。
 
@@ -51,19 +51,19 @@ build!(ctx)
 headers = detect_headers(header_dir, args)
 ```
 
-您还需要一个选项文件 `generator.toml` 来使这个脚本工作，您可以参考 [this toml file](https://github.com/JuliaInterop/Clang.jl/blob/master/gen/generator.toml) 作为例子。
+您还需要一个选项文件 `generator.toml` 来使这个脚本工作，可以参考 [这个 toml 文件](https://github.com/JuliaInterop/Clang.jl/blob/master/gen/generator.toml) 作为例子。
 
 ### 跳过特定符号
 
-标头可能包含一些未被 Clang.jl 正确处理的符号，或者可能需要手动换行。例如，julia 将 `tm` 提供为 `Libc.TmStruct`，因此您可能不想将其映射到新结构。作为解决方法，您可以跳过这些符号。之后，如果需要此符号，您可以将其添加回序言中。 序言由 `prologue_file_path` 选项指定。
+标头可能包含一些未被 Clang.jl 正确处理的符号，或者可能需要手动换行。例如，julia 将 `tm` 提供为 `Libc.TmStruct`，因此您可能不想将其映射到新结构。作为解决方法，您可以跳过这些符号。之后，如果需要此符号，再将其添加回序言中。 序言由 `prologue_file_path` 选项指定。
 
 * 将符号添加到 `output_ignorelist` 以避免它被包装。
 
-* 如果符号在系统头文件中并导致 Clang.jl 在打印前出错，除了发布问题外，在生成之前写入 `@add_def symbol_name` 以抑制它被包装。
+* 如果符号在系统头文件中并导致 Clang.jl 在输出前出错，除了发布问题外，在生成之前写入 `@add_def symbol_name` 以抑制它被包装。
 
-### 打印前重写表达式
+### 输出前重写表达式
 
-您还可以在打印之前修改生成的包装。Clang.jl 将构建过程分为生成和打印过程。您可以分别运行这两个过程并在打印前重写表达式。
+您还可以在输出之前修改生成的封装。Clang.jl 将构建过程分为生成和输出过程。您可以分别运行这两个过程并在输出前重写表达式。
 
 ```julia
 # build without printing so we can do custom rewriting
@@ -114,8 +114,8 @@ build!(ctx, BUILDSTAGE_PRINTING_ONLY)
 
 然而，可变参数 C 函数必须使用正确的参数类型调用，下面列出了最有用的部分。
 
-| C型 | ccall 签名 | Julia 类型 |
-|------------------------------------|------------ --------------------------------------|---------- ------------------------------|
+| C 类型 | ccall 签名 | Julia 类型 |
+|--------------|-------------|-------------|
 | 整数和浮点数 | 同类型 | 同类型 |
 | 结构体 `T` | 具有相同布局的具体 Julia 结构 `T` | `T` |
 | 指针 (`T*`) | `Ref{T}` 或 `Ptr{T}` | `Ref{T}` 或 `Ptr{T}` 或任何数组类型 |
